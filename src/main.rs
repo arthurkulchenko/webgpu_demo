@@ -1,30 +1,20 @@
+// mod main_window;
+
+// use main_window::run;
+
+use webgpu::run;
 use env_logger;
 // use log::info;
 
-use winit::{
-    event::*,
-    event_loop::{EventLoop},
-    window::WindowBuilder,
-    keyboard::{Key, NamedKey},
-};
-
 fn main() {
-    env_logger::init();
-    let event_loop = EventLoop::new().unwrap();
-    let window = WindowBuilder::new().build(&event_loop).unwrap();
+    cfg_if::cfg_if! {
+        if #[cfg(target_arch = "wasm32")] {
+            std::panic::set_hook(Box::new(console_error_panic_hook::hook));
+            console_log::init_with_level(log::Level::Warn).expect("Couldn't initialize logger");
+        } else {
+            env_logger::init();
+        }
+    }
 
-    let _ = event_loop.run(move |event, eventloop_target_ref| match event {
-        Event::WindowEvent { ref event, window_id, } if window_id == window.id() => match event {
-            WindowEvent::CloseRequested | WindowEvent::KeyboardInput {
-                event: KeyEvent {
-                           logical_key: Key::Named(NamedKey::Escape),
-                           state: ElementState::Pressed,
-                           ..
-                       },
-                ..
-            } => eventloop_target_ref.exit(),
-            _ => {}
-        },
-        _ => {}
-    });
+    run();
 }
