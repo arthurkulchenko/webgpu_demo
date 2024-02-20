@@ -1,8 +1,10 @@
 // mod main_window;
 
 // use main_window::run;
+extern crate console_error_panic_hook;
+// use std::panic;
 
-use webgpu::run;
+use webgpu_demo::run;
 use env_logger;
 // use log::info;
 
