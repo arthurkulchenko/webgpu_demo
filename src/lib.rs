@@ -1,16 +1,18 @@
+mod surface_state;
+
 #[cfg(target_arch="wasm32")]
 use wasm_bindgen::prelude::*;
 
 use winit::{
     event::*,
     event_loop::{EventLoop, ControlFlow},
-    window::WindowBuilder,
-    // keyboard::{Key, NamedKey},
+    window::{WindowBuilder, Window},
 };
+
+
 
 #[cfg_attr(target_arch="wasm32", wasm_bindgen(start))]
 pub fn run() {
-    // let event_loop = EventLoop::new().unwrap();
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new().build(&event_loop).unwrap();
 
@@ -33,20 +35,6 @@ pub fn run() {
     }
 
 
-    // let _ = event_loop.run(move |event, eventloop_target_ref| match event {
-    //             Event::WindowEvent { ref event, window_id, } if window_id == window.id() => match event {
-    //         WindowEvent::CloseRequested | WindowEvent::KeyboardInput {
-    //             event: KeyEvent {
-    //                        logical_key: Key::Named(NamedKey::Escape),
-    //                        state: ElementState::Pressed,
-    //                        ..
-    //                    },
-    //             ..
-    //         } => eventloop_target_ref.exit(),
-    //         _ => {}
-    //     },
-    //     _ => {}
-    // });
     event_loop.run(move |event, _, control_flow| match event {
         Event::WindowEvent { ref event, window_id } if window_id == window.id() => match event {
             WindowEvent::CloseRequested | WindowEvent::KeyboardInput {
