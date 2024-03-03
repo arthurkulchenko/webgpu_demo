@@ -12,6 +12,8 @@ name = "webgpu"
 path = "src/main.rs"
 
 [dependencies]
+pollster = "0.3"
+
 winit = "0.28"
 wgpu = "0.18"
 console_error_panic_hook = "0.1"
