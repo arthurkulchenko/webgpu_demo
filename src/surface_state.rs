@@ -12,7 +12,7 @@ pub struct State {
     // The window must be declared after the surface so
     // it gets dropped after it as the surface contains
     // unsafe references to the window's resources.
-    window: Window,
+    // window: Window,
 }
 
 impl State {
@@ -22,8 +22,8 @@ impl State {
         let instance_descriptor = wgpu::InstanceDescriptor { backends: wgpu::Backends::all(), ..Default::default() };
         let graph_api_wrapper_instance = wgpu::Instance::new(instance_descriptor);
         // let surface = unsafe { graph_api_wrapper_instance.create_surface(&window) };
-        // let surface_result = unsafe { graph_api_wrapper_instance.create_surface(&window) };
-        let surface:wgpu::Surface;
+        let surface_result = unsafe { graph_api_wrapper_instance.create_surface(&window) };
+        // let surface:wgpu::Surface;
 
         // match surface_result {
         //     Ok(sur) => { surface = sur; },
@@ -41,7 +41,7 @@ impl State {
             // queue,
             // config
             size,
-            window,
+            // window,
         }
     }
 
