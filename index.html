@@ -10,6 +10,7 @@
     <!-- <link rel="manifest" href="./manifest.json"> -->
     <style>
       canvas {
+        background: grey;
         border: 1px solid black;
         display: block;
         margin: 0 auto;
@@ -18,14 +19,13 @@
 
   </head>
   <body id="body">
-    <h1>WebAssembly Integration Example</h1>
-    <div class="footer-content"></div>
+    <h1>WebAssembly Integration</h1>
+    <!-- <div class="footer-content"></div> -->
 
     <script defer type="module">
       import init from "./pkg/webgpu_demo.js";
-      init().then(() => {
-          console.log("WASM Loaded");
-      });
+
+      init().then(() => { console.log("WASM Loaded"); });
     </script>
   </body>
 </html>
