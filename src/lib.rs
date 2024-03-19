@@ -1,6 +1,9 @@
 // mod surface_state;
 mod error;
+mod type_is;
+
 use error::WDError;
+use type_is::TypeIs;
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
@@ -15,11 +18,17 @@ use std::panic;
 use tracing::{error, info, warn};
 
 use winit::keyboard::Key;
+#[cfg(target_arch = "wasm32")]
 use winit::window::Window;
+#[cfg(target_arch = "wasm32")]
+use winit::platform::web;
+
 use winit::{ event::*, event_loop::{EventLoop}, window::WindowBuilder, };
+#[cfg(target_arch = "wasm32")]
+use wgpu::SurfaceTarget;
 
 // use wasm_bindgen_test::__rt::node::Node;
-// use web_sys::Node;
+// use wgpu::web_sys::Node;
 
 fn log_init() {
     cfg_if::cfg_if! {
@@ -59,6 +68,33 @@ extern "C" {
     fn log_many(a: &str, b: &str);
 }
 
+// pub enum SurfaceTarget<'window> {
+//     Window(Box<dyn WindowHandle + 'window>),
+//     Canvas(HtmlCanvasElement),
+//     OffscreenCanvas(OffscreenCanvas),
+// }
+
+#[cfg(target_arch = "wasm32")]
+pub fn log_match<'window>(target: impl Into<SurfaceTarget<'window>> + std::marker::Copy,) {
+// pub fn log_match<'window>(target: &wgpu::web_sys::OffscreenCanvas) {
+    // info!("target: {:?}", target);
+    info!("Architecture: {}", std::env::consts::ARCH);
+
+    // let my_instance = TypeIs(target);
+    // info!("{:#?}", my_instance.canvas());
+    // let var: wgpu::web_sys::OffscreenCanvas = target.into();
+    // let var = target.into();
+    match target {
+        // SurfaceTarget::Window(winit_window) => { info!("****** Window"); },
+        #[cfg(any(webgpu, webgl))]
+        SurfaceTarget::Canvas(html_canvas) => { info!("****** Canvas"); },
+        #[cfg(any(webgpu, webgl))]
+        SurfaceTarget::OffscreenCanvas(offscreen_canvas) => { info!("****** OffscreenCanvas"); },
+
+        _ => { info!("****** Unknown"); }
+    }
+}
+
 // use surface_state::State;
 // NOTICE:
 // WIP:
@@ -67,103 +103,70 @@ pub async fn run() {
     log_init();
 
     let event_loop = EventLoop::new().unwrap();
-    let window: winit::window::Window = WindowBuilder::new().build(&event_loop).unwrap();
+    // let window_size = winit::dpi::PhysicalSize::new(800, 800);
+    // info!("window_size = {:#?}\n", window_size);
 
-    #[cfg(target_arch = "wasm32")] {
-        let winit_canvas: web_sys::HtmlCanvasElement = window.canvas().unwrap();
-        let html_window = web_sys::window().ok_or(WDError::HtmlOperationError("Can't find window".into()));
-        let html_document = html_window.and_then(|js_window| js_window.document().ok_or(WDError::HtmlOperationError("Can't find document".into())));
-        let html_body = html_document.clone().and_then(|document| document.body().ok_or(WDError::HtmlOperationError("Can't find body".into())));
+    // let win_builder = winit::window::WindowBuilder::new().with_inner_size(window_size);
+    // let win_builder = win_builder.with_inner_size(window_size)
+    //                              .with_title("What does the fox say?"); // canvas alt="" id="example" width="300" height="300"
 
-        html_body.and_then(|body| {
-            info!("Appedning canvas to body.");
-            body.append_child(&winit_canvas).map_err(|err| WDError::HtmlOperationError(err.as_string().expect("Can't append canvas")))
-        }).unwrap();
+    // info!("{:?}", win_builder);
+    // info!("window_attributes = {:#?}\n", &win_builder.window_attributes());
+    // let new_window = win_builder.build(&event_loop).unwrap();
 
-        // let canvas = web_sys::window().and_then(|js_window| js_window.document());
-                                      // .and_then(|document| document.get_elements_by_tag_name("canvas"))
-                                      // .and_then(|canvas| canvas.get_with_index(0))
-                                      // .expect("Couldn't get canvas element by id.");
+    let window = winit::window::Window::new(&event_loop).unwrap();
 
-        // let swindow = web_sys::window();
-        // let sdoc = swindow.and_then(|win| win.document());
-        // let snodes: Option<web_sys::NodeList> = sdoc.and_then(|doc| { doc.query_selector_all(&format!("[data-raw-handle=\"{}\"]", 1)).ok()});
-        // let snode: web_sys::Node = snodes.and_then(|nodes| nodes.get(0)).expect("WHERE IS THE canvas").into();
-        // info!("snode.parent_element is {:?}", snode.parent_element());
+    // info!("\n NEW WINDOW: {:#?}\n", new_window);
 
-        // let html_collection = html_document.and_then(|document| Ok(document.get_elements_by_tag_name("canvas"))).unwrap();
-        // let canvas_on_page: web_sys::Element = html_collection.get_with_index(0).ok_or(WDError::HtmlOperationError("Couldn't get canvas".to_owned())).unwrap();
-        // info!("{:?}", canvas_on_page); // Element
+    // if let Some(result) = window.request_inner_size(window_size) {
+    //     info!("request_inner_size = {:#?}\n", result);
+    // } else {
+    //     info!("NONE \n");
+    // };
 
-
-
-                            // web_sys::window().and_then(|win| win.document())
-                            // .and_then(|doc| { doc.query_selector_all(&format!("[data-raw-handle=\"{}\"]", 1)).ok()})
-                            // .and_then(|nodes| nodes.get(0))
-                            // .expect("expected to find single canvas").into();
-                            // canvas_node.set_attribute("width", "800");
-
-
-
-
-//         window
-// match target {
-//             SurfaceTargetUnsafe::RawHandle {
-//                 raw_display_handle: _,
-//                 raw_window_handle,
-//             } => {
-//                 let canvas_element: web_sys::HtmlCanvasElement = match raw_window_handle {
-//         raw_window_handle::RawWindowHandle::Web(handle) => {
-//                         let canvas_node: wasm_bindgen::JsValue = web_sys::window()
-//                             .and_then(|win| win.document())
-//                             .and_then(|doc| {
-//                                 doc.query_selector_all(&format!(
-//                                     "[data-raw-handle=\"{}\"]",
-//                                     handle.id
-//                                 ))
-//                                 .ok()
-//                             })
-//                             .and_then(|nodes| nodes.get(0))
-//                             .expect("expected to find single canvas")
-//                             .into();
-//                         canvas_node.into()
-//                     }
-//                     raw_window_handle::RawWindowHandle::WebCanvas(handle) => {
-//                         let value: &JsValue = unsafe { handle.obj.cast().as_ref() };
-//                         value.clone().unchecked_into()
-//                     }
-//                     raw_window_handle::RawWindowHandle::WebOffscreenCanvas(handle) => {
-//                         let value: &JsValue = unsafe { handle.obj.cast().as_ref() };
-//                         let canvas: web_sys::OffscreenCanvas = value.clone().unchecked_into();
-//                         let context_result = canvas.get_context("webgpu");
-
-//                         return self.create_surface_from_context(
-//                             Canvas::Offscreen(canvas),
-//                             context_result,
-//                         );
-//                     }
-//                     _ => panic!("expected valid handle for canvas"),
-
-
-
-
-    }
-
+    // info!("\n NEW WINDOW: {:#?}\n", window);
 
     let size = window.inner_size();
-    let instance_descriptor = wgpu::InstanceDescriptor { backends: wgpu::Backends::all(), ..Default::default() };
-    let instance = wgpu::Instance::new(instance_descriptor);
+    // info!(" ~~~~~~~~~~~ window size: {:?}\n", size);
+    // let window = winit::window::WindowBuilder::new().with_canvas(canvas).build(&event_loop).unwrap();
+
+    // wgpu::web_sys::window
+
+
+    #[cfg(target_arch = "wasm32")]
+    {
+        let styles = "border: 1px solid black; background: grey; margin: 10px; padding: 10px;";
+
+        let winit_canvas: wgpu::web_sys::HtmlCanvasElement = window.canvas().unwrap();
+        winit_canvas.set_width(200);
+        winit_canvas.set_height(200);
+        winit_canvas.set_title("what does the fox say?");
+        winit_canvas.set_attribute("style", styles);
+
+        // info!("{:?}", winit_canvas.get_context("webgpu"));
+
+        wgpu::web_sys::window().ok_or(WDError::HtmlOperationError("Can't find window".into()))
+            .and_then(|js_window| js_window.document().ok_or(WDError::HtmlOperationError("Can't find document".into())))
+            .and_then(|document| document.body().ok_or(WDError::HtmlOperationError("Can't find body".into())))
+            .and_then(|body| {
+                // let offscreen_canvas = wgpu::web_sys::OffscreenCanvas::new(400, 400).unwrap();
+                // body.append_child(&offscreen_canvas).map_err(|err| WDError::HtmlOperationError(err.as_string().expect("Can't append canvas")))
+                body.append_child(&winit_canvas).map_err(|err| WDError::HtmlOperationError(err.as_string().expect("Can't append canvas")))
+            }).unwrap();
+    }
+
+    let instance = wgpu::Instance::new(wgpu::InstanceDescriptor { backends: wgpu::Backends::all(), ..Default::default() });
     let surface = instance.create_surface(&window).unwrap();
 
-    // canvas.get_context("webgpu");
-
-    // let adapter = instance.request_adapter(&wgpu::RequestAdapterOptions { power_preference: wgpu::PowerPreference::default(), compatible_surface: Some(&surface), force_fallback_adapter: false, },).await.unwrap();
-    // let (device, _queue) = adapter.request_device(&wgpu::DeviceDescriptor { required_features: wgpu::Features::empty(), required_limits: if cfg!(target_arch = "wasm32") { wgpu::Limits::downlevel_webgl2_defaults() } else { wgpu::Limits::default() }, label: None, }, None,).await.unwrap();
-    // let surface_caps = surface.get_capabilities(&adapter);
-    // let surface_format = surface_caps.formats.iter().copied().filter(|f| f.is_srgb()).next().unwrap_or(surface_caps.formats[0]);
+    let adapter = instance.request_adapter(&wgpu::RequestAdapterOptions { power_preference: wgpu::PowerPreference::default(), compatible_surface: Some(&surface), force_fallback_adapter: false, },).await.unwrap();
+    let (device, _queue) = adapter.request_device(&wgpu::DeviceDescriptor { required_features: wgpu::Features::empty(), required_limits: if cfg!(target_arch = "wasm32") { wgpu::Limits::downlevel_webgl2_defaults() } else { wgpu::Limits::default() }, label: None, }, None,).await.unwrap();
+    // let (device, _queue) = adapter.request_device(&wgpu::DeviceDescriptor { required_features: wgpu::Features::empty(), required_limits: if cfg!(target_arch = "wasm32") { wgpu::Limits::downlevel_webgl2_defaults() } else { wgpu::Limits::downlevel_defaults() }, label: None, }, None,).await.unwrap();
+    // let (device, _queue) = adapter.request_device(&wgpu::DeviceDescriptor { required_features: wgpu::Features::all(), required_limits: wgpu::Limits::downlevel_webgl2_defaults(), label: None, }, None,).await.unwrap();
+    let surface_caps = surface.get_capabilities(&adapter);
+    let surface_format = surface_caps.formats.iter().copied().filter(|f| f.is_srgb()).next().unwrap_or(surface_caps.formats[0]);
     // let config = wgpu::SurfaceConfiguration { usage: wgpu::TextureUsages::RENDER_ATTACHMENT, format: surface_format, width: size.width, height: size.height, present_mode: surface_caps.present_modes[0], alpha_mode: surface_caps.alpha_modes[0], view_formats: vec![], desired_maximum_frame_latency: 2 };
-    // surface.configure(&device, &config);
-
+    let mut config = wgpu::SurfaceConfiguration { usage: wgpu::TextureUsages::RENDER_ATTACHMENT, format: surface_format, width: size.width, height: size.height, present_mode: surface_caps.present_modes[0], alpha_mode: surface_caps.alpha_modes[0], view_formats: vec![], desired_maximum_frame_latency: 2 };
+    surface.configure(&device, &config);
 
     let window_id_clone = window.id().clone();
 
@@ -171,7 +174,13 @@ pub async fn run() {
     let _ = event_loop.run(move |event, event_handler| match event {
         Event::WindowEvent { ref event, window_id, } if window_id == window_id_clone => match event {
             WindowEvent::CloseRequested | WindowEvent::KeyboardInput { event: KeyEvent { logical_key: Key::Named(winit::keyboard::NamedKey::Exit), .. }, ..} => { event_handler.exit(); },
-            // WindowEvent::Resized(physical_size) => { state.resize(*physical_size); },
+            WindowEvent::Resized(physical_size) => {
+                config.width = physical_size.width / 2;
+                config.height = physical_size.height / 2;
+                surface.configure(&device, &config);
+                // info!("Resized to {:?}", physical_size);
+                // state.resize(*physical_size);
+            },
             // WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
             //     // new_inner_size is &&mut so we have to dereference it twice
             //     state.resize(**new_inner_size);
