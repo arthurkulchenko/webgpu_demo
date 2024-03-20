@@ -22,7 +22,7 @@ use winit::platform::web::WindowExtWebSys;
 
 // fn render(surface)
 
-async fn surface_presets(window: &winit::window::Window) -> (wgpu::Surface, wgpu::Device, wgpu::SurfaceConfiguration) {
+async fn surface_presets(window: &winit::window::Window) -> (wgpu::Surface, wgpu::Device, wgpu::Queue, wgpu::SurfaceConfiguration) {
     let instance = wgpu::Instance::new(wgpu::InstanceDescriptor { backends: wgpu::Backends::all(), ..Default::default() });
     let surface = instance.create_surface(window).unwrap();
     let adapter = instance.request_adapter(
@@ -30,10 +30,14 @@ async fn surface_presets(window: &winit::window::Window) -> (wgpu::Surface, wgpu
             power_preference: wgpu::PowerPreference::default(), compatible_surface: Some(&surface), force_fallback_adapter: false,
         },
     ).await.unwrap();
-    let (device, _queue) = adapter.request_device(
+    let (device, queue) = adapter.request_device(
         &wgpu::DeviceDescriptor {
             required_features: wgpu::Features::empty(),
-            required_limits: if cfg!(target_arch = "wasm32") { wgpu::Limits::downlevel_webgl2_defaults() } else { wgpu::Limits::default() },
+            required_limits: if cfg!(target_arch = "wasm32") {
+                                 wgpu::Limits::downlevel_webgl2_defaults()
+                             } else {
+                                 wgpu::Limits::default()
+                             },
             label: None,
         },
         None,
@@ -53,7 +57,7 @@ async fn surface_presets(window: &winit::window::Window) -> (wgpu::Surface, wgpu
         desired_maximum_frame_latency: 2
     };
     surface.configure(&device, &config);
-    (surface, device, config)
+    (surface, device, queue, config)
 }
 
 fn append_canvas(window: winit::window::Window) -> winit::window::Window {
@@ -70,14 +74,14 @@ fn append_canvas(window: winit::window::Window) -> winit::window::Window {
             .and_then(|js_window| js_window.document().ok_or(WDError::HtmlError("Can't find document".into())))
             .and_then(|document| document.body().ok_or(WDError::HtmlError("Can't find body".into())))
             .and_then(|body| {
-                let _ =body.set_attribute("style", styles::BODY);
+                let _ = body.set_attribute("style", styles::BODY);
                 body.append_child(&canvas).map_err(|err| WDError::HtmlError(err.as_string().expect("Can't append canvas")))
             }).unwrap();
     }
     window
 }
 
-fn initialize() -> (winit::window::Window, EventLoop<()>) {
+fn initialize() -> (winit::window::Window, winit::event_loop::EventLoop<()>) {
     info!("info");
     warn!("warn");
     error!("error");
@@ -96,16 +100,64 @@ fn initialize() -> (winit::window::Window, EventLoop<()>) {
     (window, runtime)
 }
 
+fn input(event: &WindowEvent) -> bool {
+// fn input(&mut self, event: &WindowEvent) -> bool {
+    false
+}
+
+fn update() {
+}
+
+
+fn render(queue: &mut wgpu::Queue, output: wgpu::SurfaceTexture, mut encoder: wgpu::CommandEncoder, view: wgpu::TextureView) -> Result<(), wgpu::SurfaceError> {
+    {
+        let _render_pass = encoder.begin_render_pass(
+            &wgpu::RenderPassDescriptor {
+                label: Some("Render Pass"),
+                color_attachments: &[
+                    Some(
+                        wgpu::RenderPassColorAttachment {
+                            view: &view,
+                            resolve_target: None,
+                            ops: wgpu::Operations {
+                                load: wgpu::LoadOp::Clear(wgpu::Color {
+                                    r: 0.3,
+                                    g: 0.5,
+                                    b: 0.6,
+                                    a: 1.0,
+                                }),
+                                store: wgpu::StoreOp::Store,
+                            },
+                        }
+                    )
+                ],
+                depth_stencil_attachment: None,
+                occlusion_query_set: None,
+                timestamp_writes: None,
+            }
+        );
+    }
+
+    // submit will accept anything that implements IntoIter
+    queue.submit(std::iter::once(encoder.finish()));
+    output.present();
+
+    Ok(())
+}
+
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
 async fn run() {
     let (window, runtime) = initialize();
-    let (surface, device, mut config) = surface_presets(&window).await;
+    let (surface, device, mut queue, mut config) = surface_presets(&window).await;
 
     let win_id = window.id().clone();
     let _ = runtime.run(
         move |event, event_handler| {
             match event {
                 Event::WindowEvent { ref event, window_id, } if window_id == win_id => match event {
+                // Event::WindowEvent { ref event, window_id, } if window_id == win_id => if input(event) match event {
+                // Event::WindowEvent { ref event, window_id, } if window_id == win_id && !input(event) match event {
+                    // NOTICE: Window events
                     WindowEvent::CloseRequested | WindowEvent::KeyboardInput {
                         event: KeyEvent { logical_key: Key::Named(winit::keyboard::NamedKey::Escape), .. }, ..
                     } => {
@@ -117,12 +169,38 @@ async fn run() {
                         config.height = physical_size.height / 2;
                         surface.configure(&device, &config);
                     },
-                    // WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
+                    WindowEvent::ScaleFactorChanged { inner_size_writer, .. } => {
+                        // let size = winit::dpi::PhysicalSize { width: physical_size.width / 2, height: physical_size.height / 2 };
+                        // inner_size_writer.request_inner_size().unwrap();
+                        
+                        // surface.configure(&device, &config);
                     //     // new_inner_size is &&mut so we have to dereference it twice
                     //     state.resize(**new_inner_size);
-                    // },
+                    },
+                    WindowEvent::RedrawRequested if window_id == win_id => {
+                        update();
+                        let output = surface.get_current_texture().unwrap();
+                        let view = output.texture.create_view(&wgpu::TextureViewDescriptor::default());
+                        let encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                            label: Some("Render Encoder"),
+                        });
+
+
+                        match render(&mut queue, output, encoder, view) {
+                            Ok(_) => {}
+                            // Reconfigure the surface if lost
+                            // Err(wgpu::SurfaceError::Lost) => state.resize(state.size),
+                            // The system is out of memory, we should probably quit
+                            // Err(wgpu::SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
+                            // All other errors (Outdated, Timeout) should be resolved by the next frame
+                            Err(e) => eprintln!("{:?}", e),
+                        }
+                    },
                     _ => {}
                 },
+                
+                // // NOTICE: RedrawRequested will only trigger once unless we manually request it.
+                // Event::MainEventsCleared => { window.request_redraw(); },
                 _ => {}
             }
         }
