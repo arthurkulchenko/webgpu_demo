@@ -8,24 +8,27 @@
     <title>TEMPLATE</title>
     <!-- <link rel="icon" type="image/x-icon" href="./assets/favicon.ico"> -->
     <!-- <link rel="manifest" href="./manifest.json"> -->
-    <style>
+    <!-- <style>
       canvas {
         background: grey;
         border: 1px solid black;
         display: block;
-        margin: 0 auto;
+/*        margin: 0 auto;*/
+        /*width: 100px;
+        height: 100px;*/
       }
-    </style>
+    </style> -->
 
   </head>
-  <body id="body">
+  <body>
     <h1>WebAssembly Integration</h1>
-    <!-- <div class="footer-content"></div> -->
-
+    <div class="footer-content"></div>
     <script defer type="module">
       import init from "./pkg/webgpu_demo.js";
 
-      init().then(() => { console.log("WASM Loaded"); });
+      init().then(() => {
+        console.log("WASM Loaded");
+      });
     </script>
   </body>
 </html>

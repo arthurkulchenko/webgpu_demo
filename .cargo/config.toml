@@ -4,3 +4,5 @@ rustflags = [ "--cfg=web_sys_unstable_apis" ]
 rustdocflags = [ "--cfg=web_sys_unstable_apis" ]
 # * If you wish to disable webgpu backend and instead use webgl backend, change your wgpu Cargo.toml entry to:
 # wgpu = { version = "", default-features = false, features = ["webgl"] }
+[target.wasm32-unknown-unknown]
+runner = "wasm-server-runner"

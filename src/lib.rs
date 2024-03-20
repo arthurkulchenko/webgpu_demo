@@ -1,57 +1,131 @@
-mod surface_state;
+// mod surface_state;
+mod error;
+mod type_is;
 
-#[cfg(target_arch="wasm32")]
+// use type_is::TypeIs;
+
+extern crate console_error_panic_hook;
+
+use std::panic;
+use winit::{ event::*, event_loop::{EventLoop}, keyboard::Key };
+use tracing::{error, info, warn};
+
+#[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 #[cfg(target_arch = "wasm32")]
-use winit::dpi::PhysicalSize;
+use error::WDError;
+#[cfg(target_arch = "wasm32")]
+use winit::platform::web;
 #[cfg(target_arch = "wasm32")]
 use winit::platform::web::WindowExtWebSys;
 
-use winit::{event::*, event_loop::{EventLoop, ControlFlow}, window::{WindowBuilder},};
-use log::info;
+fn log_init() {
+    info!("Initializing logging");
+    warn!("Initializing logging");
+    error!("Initializing logging");
 
-use surface_state::State;
-// NOTICE: 
-// WIP:
-#[cfg_attr(target_arch="wasm32", wasm_bindgen(start))]
+    cfg_if::cfg_if! {
+        if #[cfg(target_arch = "wasm32")] {
+            panic::set_hook(Box::new(console_error_panic_hook::hook));
+            tracing_wasm::set_as_global_default();
+        } else {
+            tracing_subscriber::fmt::init();
+        }
+    }
+}
+
+// #[cfg(target_arch = "wasm32")]
+// #[wasm_bindgen]
+// extern "C" {
+//     // Use `js_namespace` here to bind `console.log(..)` instead of just
+//     // `log(..)`
+//     #[wasm_bindgen(js_namespace = console)]
+//     fn log(s: &str);
+
+//     // The `console.log` is quite polymorphic, so we can bind it with multiple
+//     // signatures. Note that we need to use `js_name` to ensure we always call
+//     // `log` in JS.
+//     #[wasm_bindgen(js_namespace = console, js_name = log)]
+//     fn log_u32(a: u32);
+
+//     // Multiple arguments too!
+//     #[wasm_bindgen(js_namespace = console, js_name = log)]
+//     fn log_many(a: &str, b: &str);
+// }
+
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
 pub async fn run() {
-    let winit_event_loop = EventLoop::new();
+    log_init();
 
-    // let winit_window = WindowBuilder::new().build(&winit_event_loop).unwrap();
-    let winit_window = WindowBuilder::new().build(&winit_event_loop).unwrap();
-    let winit_window_2 = WindowBuilder::new().build(&winit_event_loop).unwrap();
+    let event_loop = EventLoop::new().unwrap();
 
-    let mut state = State::new(winit_window_2).await;
+    // let win_builder = winit::window::WindowBuilder::new().with_inner_size(window_size);
+    // let win_builder = win_builder.with_inner_size(window_size).with_title("What does the fox say?"); // canvas alt="What does the fox say?"
+
+    let window = winit::window::Window::new(&event_loop).unwrap();
+    let size = window.inner_size();
 
     #[cfg(target_arch = "wasm32")]
     {
-        // NOTICE: Winit prevents sizing with CSS, so we have to set the size manually when on web.
-        // NOTICE: Only half of the size is set to make the canvas
-        state.window().set_inner_size(PhysicalSize::new(200*2, 200*2));
-        // winit_window.set_inner_size(PhysicalSize::new(200, 200));
-        let canvas2 = web_sys::Element::from(state.window().canvas());
-        let canvas = web_sys::Element::from(winit_window.canvas());
-        // let canvas = web_sys::Element::from(winit_window.canvas());
+        let canvas: wgpu::web_sys::HtmlCanvasElement = window.canvas().unwrap();
 
-        web_sys::window().and_then(|js_window| js_window.document()).and_then(|document| {
-            // NOTICE: Append winit window with event loop reference inside.
-            document.get_element_by_id("body")?.append_child(&canvas2).ok()?;
-            document.get_element_by_id("body")?.append_child(&canvas).ok()?;
-            Some(())
-        }).expect("Couldn't append canvas to document body.");
+        canvas.set_width(200);
+        canvas.set_height(200);
+        canvas.set_title("what does the fox say?");
+        let styles = "border: 1px solid black; background: grey; margin: 10px; padding: 10px;";
+        let _ = canvas.set_attribute("style", styles);
+        // info!("{:#?}", canvas.get_context("webgpu"));
+
+        wgpu::web_sys::window()
+            .ok_or(WDError::HtmlError("Can't find window".into()))
+            .and_then(|js_window| js_window.document().ok_or(WDError::HtmlError("Can't find document".into())))
+            .and_then(|document| document.body().ok_or(WDError::HtmlError("Can't find body".into())))
+            .and_then(|body| {
+                body.append_child(&canvas).map_err(|err| WDError::HtmlError(err.as_string().expect("Can't append canvas")))
+            }).unwrap();
     }
 
-    winit_event_loop.run(move |event, _, control_flow| match event {
+    let instance = wgpu::Instance::new(wgpu::InstanceDescriptor { backends: wgpu::Backends::all(), ..Default::default() });
+    let surface = instance.create_surface(&window).unwrap();
 
-        // Event::WindowEvent { ref event, window_id } if window_id == state.window().id() => match event {
-        Event::WindowEvent { ref event, window_id } if window_id == winit_window.id() => match event {
+    let adapter = instance.request_adapter(
+        &wgpu::RequestAdapterOptions {
+            power_preference: wgpu::PowerPreference::default(), compatible_surface: Some(&surface), force_fallback_adapter: false,
+        },
+    ).await.unwrap();
+    let (device, _queue) = adapter.request_device(
+        &wgpu::DeviceDescriptor {
+            required_features: wgpu::Features::empty(),
+            required_limits: if cfg!(target_arch = "wasm32") { wgpu::Limits::downlevel_webgl2_defaults() } else { wgpu::Limits::default() },
+            label: None,
+        },
+        None,
+    ).await.unwrap();
+    let surface_caps = surface.get_capabilities(&adapter);
+    let surface_format = surface_caps.formats.iter().copied().filter(|f| f.is_srgb()).next().unwrap_or(surface_caps.formats[0]);
 
-            WindowEvent::CloseRequested | WindowEvent::KeyboardInput {
-                // NOTICE: ".." means we don't care about the rest of the values in the struct while matching
-                // We pattern match like we create Key and this key is what we are interested in
-                input: KeyboardInput { state: ElementState::Pressed, virtual_keycode: Some(VirtualKeyCode::Escape), .. }, ..
-            } => { *control_flow = ControlFlow::Exit },
-            // WindowEvent::Resized(physical_size) => { state.resize(*physical_size); },
+    let mut config = wgpu::SurfaceConfiguration {
+        usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+        format: surface_format,
+        width: size.width,
+        height: size.height,
+        present_mode: surface_caps.present_modes[0],
+        alpha_mode: surface_caps.alpha_modes[0],
+        view_formats: vec![],
+        desired_maximum_frame_latency: 2
+    };
+    surface.configure(&device, &config);
+
+    let window_id_clone = window.id().clone();
+
+    let _ = event_loop.run(move |event, event_handler| match event {
+        Event::WindowEvent { ref event, window_id, } if window_id == window_id_clone => match event {
+            WindowEvent::CloseRequested | WindowEvent::KeyboardInput { event: KeyEvent { logical_key: Key::Named(winit::keyboard::NamedKey::Exit), .. }, ..} => { event_handler.exit(); },
+            WindowEvent::Resized(physical_size) => {
+                config.width = physical_size.width / 2;
+                config.height = physical_size.height / 2;
+                surface.configure(&device, &config);
+            },
             // WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
             //     // new_inner_size is &&mut so we have to dereference it twice
             //     state.resize(**new_inner_size);
@@ -59,6 +133,5 @@ pub async fn run() {
             _ => {}
         },
         _ => {}
-
     });
 }
