@@ -172,7 +172,6 @@ async fn run() {
     let (surface, device, mut queue, mut config) = surface_presets(&window).await;
 
     let size = window.inner_size();
-    info!("size: {:?}", size);
 
     let win_id = window.id().clone();
     let win_ref = &window;
