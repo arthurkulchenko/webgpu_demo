@@ -10,17 +10,7 @@ extern crate console_error_panic_hook;
 use std::panic;
 use winit::{ event::*, event_loop::{EventLoop}, keyboard::Key };
 use tracing::{info, warn, error};
-use wgpu::{
-    Surface,
-    SurfaceConfiguration,
-    SurfaceTexture,
-    SurfaceError,
-    TextureView,
-    CommandEncoder,
-    Device,
-    Queue,
-    Limits
-};
+use wgpu::{ Surface, SurfaceConfiguration, SurfaceTexture, SurfaceError, TextureView, CommandEncoder, Device, Queue, Limits };
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
@@ -100,17 +90,17 @@ fn append_canvas(window: winit::window::Window) -> winit::window::Window {
     {
         let canvas: wgpu::web_sys::HtmlCanvasElement = window.canvas().unwrap();
         // NOTICE: Not taken into account while running natively
-        canvas.set_width(600);
+        canvas.set_width(400);
         canvas.set_height(300);
         canvas.set_title("what does the fox say?");
-        let _ = canvas.set_attribute("style", styles::CANVAS);
+        // let _ = canvas.set_attribute("style", styles::CANVAS);
         // info!("{:#?}", canvas.get_context("webgpu"));
         wgpu::web_sys::window()
             .ok_or(WDError::HtmlError("Can't find window".into()))
             .and_then(|js_window| js_window.document().ok_or(WDError::HtmlError("Can't find document".into())))
             .and_then(|document| document.body().ok_or(WDError::HtmlError("Can't find body".into())))
             .and_then(|body| {
-                let _ = body.set_attribute("style", styles::BODY);
+                // let _ = body.set_attribute("style", styles::BODY);
                 body.append_child(&canvas).map_err(|err| WDError::HtmlError(err.as_string().expect("Can't append canvas")))
             }).unwrap();
     }
@@ -179,7 +169,7 @@ async fn run() {
     let _ = runtime.run(
         move |mut event, event_handler| {
             match event {
-                // Event::WindowEvent { ref event, window_id, } if window_id == win_id => match event {
+                // Event::WindowEvent { ref mut event, window_id, } if window_id == win_id => match event {
                 // Event::WindowEvent { ref event, window_id, } if window_id == win_id => if input(event) match event {
                 Event::WindowEvent { ref mut event, window_id, } if window_id == win_id && !input(event) => match event {
                     // NOTICE: Window events
@@ -194,8 +184,8 @@ async fn run() {
                         config.width = physical_size.width / 2;
                         config.height = physical_size.height / 2;
                         info!("resized");
-                        // config.width = physical_size.to_logical(1.0).width;
-                        // config.height = physical_size.to_logical(1.0).height;
+                        config.width = physical_size.to_logical(1.0).width;
+                        config.height = physical_size.to_logical(1.0).height;
                         surface.configure(&device, &config);
                     },
                     WindowEvent::ScaleFactorChanged { ref mut inner_size_writer, .. } => {
