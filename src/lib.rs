@@ -100,7 +100,7 @@ fn append_canvas(window: winit::window::Window) -> winit::window::Window {
     {
         let canvas: wgpu::web_sys::HtmlCanvasElement = window.canvas().unwrap();
         // NOTICE: Not taken into account while running natively
-        canvas.set_width(900);
+        canvas.set_width(600);
         canvas.set_height(300);
         canvas.set_title("what does the fox say?");
         let _ = canvas.set_attribute("style", styles::CANVAS);
@@ -138,7 +138,8 @@ fn color_attachments(view: &TextureView) -> Vec<Option<RenderPassColorAttachment
                     // DOC: The load field tells wgpu how to handle colors stored from the previous frame
                     load: LoadOp::Clear(Color { r: 0.3, g: 0.5, b: 0.6, a: 1.0, }),
                     // DOC: The store field tells wgpu whether we want to store the rendered results to the Texture behind our
-                    // TextureView (in this case, it's the SurfaceTexture) We use StoreOp::Store as we do want to store our render results.
+                    // TextureView (in this case, it's the SurfaceTexture) We use StoreOp::Store as we do want
+                    // to store our render results.
                     store: StoreOp::Store,
                 },
             }
