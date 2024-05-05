@@ -195,11 +195,11 @@ async fn run() {
                     WindowEvent::RedrawRequested if window_id == win_id => {
                         info!("redrawed");
                         update();
-                        let output = surface.get_current_texture().unwrap();
-                        let view = output.texture.create_view(&wgpu::TextureViewDescriptor::default());
+                        let surface_texture = surface.get_current_texture().unwrap();
+                        let view = surface_texture.texture.create_view(&wgpu::TextureViewDescriptor::default());
                         let encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Encoder"), });
 
-                        match render(&mut queue, output, encoder, view) {
+                        match render(&mut queue, surface_texture, encoder, view) {
                             Ok(_) => {}
                             // Reconfigure the surface if lost
                             Err(wgpu::SurfaceError::Lost) => {
