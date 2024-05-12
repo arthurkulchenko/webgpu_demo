@@ -56,8 +56,8 @@ async fn run() {
                         config.width = physical_size.width / 2;
                         config.height = physical_size.height / 2;
                         info!("resized");
-                        config.width = physical_size.to_logical(1.0).width;
-                        config.height = physical_size.to_logical(1.0).height;
+                        // config.width = physical_size.to_logical(1.0).width;
+                        // config.height = physical_size.to_logical(1.0).height;
                         surface.configure(&device, &config);
                     },
                     WindowEvent::ScaleFactorChanged { ref mut inner_size_writer, .. } => {
