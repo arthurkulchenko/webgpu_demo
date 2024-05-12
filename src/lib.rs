@@ -1,11 +1,19 @@
+#![allow(warnings)]
 // mod surface_state;
 mod error;
 mod type_is;
 mod styles;
+mod surface_presets;
+mod events;
+mod initializer;
 
 // use type_is::TypeIs;
-
 extern crate console_error_panic_hook;
+
+use crate::surface_presets::{surface_presets, append_canvas};
+use crate::events::*;
+use crate::events::redraw_requested::*;
+use crate::initializer::initialize;
 
 use std::panic;
 use winit::{ event::*, event_loop::{EventLoop}, keyboard::Key };
@@ -20,142 +28,6 @@ use error::WDError;
 use winit::platform::web;
 #[cfg(target_arch = "wasm32")]
 use winit::platform::web::WindowExtWebSys;
-
-// fn render(surface)
-fn initialize() -> (winit::window::Window, winit::event_loop::EventLoop<()>) {
-    info!("info");
-    warn!("warn");
-    error!("error");
-
-    cfg_if::cfg_if! {
-        if #[cfg(target_arch = "wasm32")] {
-            panic::set_hook(Box::new(console_error_panic_hook::hook));
-            tracing_wasm::set_as_global_default();
-        } else {
-            tracing_subscriber::fmt::init();
-        }
-    }
-    let runtime = EventLoop::new().unwrap();
-    let window = winit::window::WindowBuilder::new()
-        .with_title("wgpu canvas")
-        .with_inner_size(winit::dpi::LogicalSize::new(600, 600))
-        .build(&runtime).unwrap();
-    let window = append_canvas(window);
-    (window, runtime)
-}
-
-async fn surface_presets(window: &winit::window::Window) -> (Surface, Device, Queue, SurfaceConfiguration) {
-    let instance = wgpu::Instance::new(wgpu::InstanceDescriptor { backends: wgpu::Backends::all(), ..Default::default() });
-    let surface = instance.create_surface(window).unwrap();
-    let adapter = instance.request_adapter(
-        &wgpu::RequestAdapterOptions {
-            power_preference: wgpu::PowerPreference::default(), compatible_surface: Some(&surface), force_fallback_adapter: false,
-        },
-    ).await.unwrap();
-    let (device, queue) = adapter.request_device(
-        &wgpu::DeviceDescriptor {
-            required_features: wgpu::Features::empty(),
-            required_limits: if cfg!(target_arch = "wasm32") { Limits::downlevel_webgl2_defaults() } else { Limits::default() },
-            label: None,
-        },
-        None,
-    ).await.unwrap();
-    let surface_caps = surface.get_capabilities(&adapter);
-    let surface_format = surface_caps.formats.iter().copied().filter(|f| f.is_srgb()).next().unwrap_or(surface_caps.formats[0]);
-
-    let size = window.inner_size();
-    info!("size: {:?}", size);
-
-    let config = SurfaceConfiguration {
-        usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-        format: surface_format,
-        // NOTICE: Do nothing on native
-        width: size.width,
-        height: size.height,
-        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-        present_mode: surface_caps.present_modes[0],
-        alpha_mode: surface_caps.alpha_modes[0],
-        view_formats: vec![],
-        desired_maximum_frame_latency: 2
-    };
-    surface.configure(&device, &config);
-    info!("config: {:#?}", config);
-
-
-    (surface, device, queue, config)
-}
-
-fn append_canvas(window: winit::window::Window) -> winit::window::Window {
-    #[cfg(target_arch = "wasm32")]
-    {
-        let canvas: wgpu::web_sys::HtmlCanvasElement = window.canvas().unwrap();
-        // NOTICE: Not taken into account while running natively
-        canvas.set_width(400);
-        canvas.set_height(300);
-        canvas.set_title("what does the fox say?");
-        // let _ = canvas.set_attribute("style", styles::CANVAS);
-        // info!("{:#?}", canvas.get_context("webgpu"));
-        wgpu::web_sys::window()
-            .ok_or(WDError::HtmlError("Can't find window".into()))
-            .and_then(|js_window| js_window.document().ok_or(WDError::HtmlError("Can't find document".into())))
-            .and_then(|document| document.body().ok_or(WDError::HtmlError("Can't find body".into())))
-            .and_then(|body| {
-                // let _ = body.set_attribute("style", styles::BODY);
-                body.append_child(&canvas).map_err(|err| WDError::HtmlError(err.as_string().expect("Can't append canvas")))
-            }).unwrap();
-    }
-    window
-}
-
-fn input(event: &WindowEvent) -> bool {
-// fn input(&mut self, event: &WindowEvent) -> bool {
-    false
-}
-
-fn update() {
-}
-
-use wgpu::{ Operations, LoadOp, StoreOp, Color, RenderPassColorAttachment };
-fn color_attachments(view: &TextureView) -> Vec<Option<RenderPassColorAttachment>> {
-    // NOTICE: Currently, we are clearing the screen with a bluish color
-    vec![
-        Some(
-            RenderPassColorAttachment {
-                view: view,
-                resolve_target: None,
-                // DOC: This tells wgpu what to do with the colors on the screen (specified by view)
-                ops: Operations {
-                    // DOC: The load field tells wgpu how to handle colors stored from the previous frame
-                    load: LoadOp::Clear(Color { r: 0.3, g: 0.5, b: 0.6, a: 1.0, }),
-                    // DOC: The store field tells wgpu whether we want to store the rendered results to the Texture behind our
-                    // TextureView (in this case, it's the SurfaceTexture) We use StoreOp::Store as we do want
-                    // to store our render results.
-                    store: StoreOp::Store,
-                },
-            }
-        ),
-    ]
-}
-
-fn render(queue: &mut Queue, output: SurfaceTexture, mut encoder: CommandEncoder, view: TextureView) -> Result<(), SurfaceError> {
-    {
-        let _render_pass = encoder.begin_render_pass(
-            &wgpu::RenderPassDescriptor {
-                label: Some("Render Pass"),
-                color_attachments: &color_attachments(&view),
-                depth_stencil_attachment: None,
-                occlusion_query_set: None,
-                timestamp_writes: None,
-            }
-        );
-    }
-
-    // submit will accept anything that implements IntoIter
-    queue.submit(std::iter::once(encoder.finish()));
-    output.present();
-
-    Ok(())
-}
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
 async fn run() {
@@ -184,8 +56,8 @@ async fn run() {
                         config.width = physical_size.width / 2;
                         config.height = physical_size.height / 2;
                         info!("resized");
-                        config.width = physical_size.to_logical(1.0).width;
-                        config.height = physical_size.to_logical(1.0).height;
+                        // config.width = physical_size.to_logical(1.0).width;
+                        // config.height = physical_size.to_logical(1.0).height;
                         surface.configure(&device, &config);
                     },
                     WindowEvent::ScaleFactorChanged { ref mut inner_size_writer, .. } => {
@@ -195,11 +67,11 @@ async fn run() {
                     WindowEvent::RedrawRequested if window_id == win_id => {
                         info!("redrawed");
                         update();
-                        let output = surface.get_current_texture().unwrap();
-                        let view = output.texture.create_view(&wgpu::TextureViewDescriptor::default());
+                        let surface_texture = surface.get_current_texture().unwrap();
+                        let view = surface_texture.texture.create_view(&wgpu::TextureViewDescriptor::default());
                         let encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Encoder"), });
 
-                        match render(&mut queue, output, encoder, view) {
+                        match render(&mut queue, surface_texture, encoder, view) {
                             Ok(_) => {}
                             // Reconfigure the surface if lost
                             Err(wgpu::SurfaceError::Lost) => {
