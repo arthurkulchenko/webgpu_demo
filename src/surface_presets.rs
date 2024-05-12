@@ -2,7 +2,7 @@ use wgpu::{ Surface, SurfaceConfiguration, SurfaceTexture, SurfaceError, Texture
 use winit::window::Window;
 use crate::error::WDError;
 use crate::styles;
-use winit::platform::web::WindowExtWebSys;
+// use winit::platform::web::WindowExtWebSys;
 
 pub async fn surface_presets(window: &winit::window::Window) -> (Surface, Device, Queue, SurfaceConfiguration) {
     let instance = wgpu::Instance::new(wgpu::InstanceDescriptor { backends: wgpu::Backends::all(), ..Default::default() });
