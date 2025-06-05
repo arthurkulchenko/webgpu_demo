@@ -1,14 +1,12 @@
+use std::sync::Arc;
+use crate::Config;
 use crate::append_canvas;
 use std::panic;
-use winit::{ event::*, event_loop::{EventLoop}, keyboard::Key };
+use winit::{window::Window, event::*, event_loop::{EventLoop}, keyboard::Key };
 use tracing::{info, warn, error};
 use wgpu::{ Surface, SurfaceConfiguration, SurfaceTexture, SurfaceError, TextureView, CommandEncoder, Device, Queue, Limits };
 
-pub fn initialize() -> (winit::window::Window, winit::event_loop::EventLoop<()>) {
-    info!("info");
-    warn!("warn");
-    error!("error");
-
+pub fn initialize(config: Arc<Config>) -> (winit::window::Window, winit::event_loop::EventLoop<()>) {
     cfg_if::cfg_if! {
         if #[cfg(target_arch = "wasm32")] {
             panic::set_hook(Box::new(console_error_panic_hook::hook));
@@ -18,11 +16,17 @@ pub fn initialize() -> (winit::window::Window, winit::event_loop::EventLoop<()>)
         }
     }
 
+    warn!("warn");
+    info!("info");
+    error!("error");
+
     let runtime = EventLoop::new().unwrap();
-    let window = winit::window::WindowBuilder::new()
+    let window_attributes = Window::default_attributes()
         .with_title("wgpu canvas")
-        .with_inner_size(winit::dpi::LogicalSize::new(600, 600))
-        .build(&runtime).unwrap();
-    let window = append_canvas(window);
+        .with_inner_size(winit::dpi::LogicalSize::new(config.width, config.height));
+        // .build(&runtime).unwrap();
+    let window = Some(runtime.create_window(window_attributes).unwrap());
+    let window = append_canvas(window.expect("REASON"));
+
     (window, runtime)
 }

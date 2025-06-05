@@ -10,10 +10,12 @@ mod initializer;
 // use type_is::TypeIs;
 extern crate console_error_panic_hook;
 
+use std::num::NonZeroU32;
 use crate::surface_presets::{surface_presets, append_canvas};
 use crate::events::*;
 use crate::events::redraw_requested::*;
 use crate::initializer::initialize;
+use std::sync::Arc;
 
 use std::panic;
 use winit::{ event::*, event_loop::{EventLoop}, keyboard::Key };
@@ -29,12 +31,16 @@ use winit::platform::web;
 #[cfg(target_arch = "wasm32")]
 use winit::platform::web::WindowExtWebSys;
 
+pub struct Config {
+    width: u32,
+    height: u32
+}
+
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
 async fn run() {
-    let (window, runtime) = initialize();
-    let (surface, device, mut queue, mut config) = surface_presets(&window).await;
-
-    let size = window.inner_size();
+    let config = Arc::new(Config { width: 500, height: 500 });
+    let (window, runtime) = initialize(Arc::clone(&config));
+    let (surface, device, mut queue, mut config) = surface_presets(&window, Arc::clone(&config)).await;
 
     let win_id = window.id().clone();
     let win_ref = &window;
@@ -55,17 +61,18 @@ async fn run() {
                         // DEBUG: Go nuts on web if not divided by 2, but on native it reduces surface in 4 times if divided by 2
                         config.width = physical_size.width / 2;
                         config.height = physical_size.height / 2;
-                        info!("resized");
+                        // info!("resized");
                         // config.width = physical_size.to_logical(1.0).width;
                         // config.height = physical_size.to_logical(1.0).height;
                         surface.configure(&device, &config);
                     },
-                    WindowEvent::ScaleFactorChanged { ref mut inner_size_writer, .. } => {
+                    WindowEvent::ScaleFactorChanged { inner_size_writer, .. } => {
                         // NOTICE: Will reduce the size of the surface but not increase it (web responcive mode)
+                        let size = win_ref.inner_size();
                         inner_size_writer.request_inner_size(size).unwrap();
                     },
                     WindowEvent::RedrawRequested if window_id == win_id => {
-                        info!("redrawed");
+                        // info!("redrawed");
                         update();
                         let surface_texture = surface.get_current_texture().unwrap();
                         let view = surface_texture.texture.create_view(&wgpu::TextureViewDescriptor::default());

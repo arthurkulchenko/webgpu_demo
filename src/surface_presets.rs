@@ -1,11 +1,18 @@
-use wgpu::{ Surface, SurfaceConfiguration, SurfaceTexture, SurfaceError, TextureView, CommandEncoder, Device, Queue, Limits };
+use std::sync::Arc;
+use std::num::NonZeroU32;
+use wgpu::{Trace, MemoryHints, Surface, SurfaceConfiguration, SurfaceTexture, SurfaceError, TextureView, CommandEncoder, Device, Queue, Limits };
 use winit::window::Window;
 use crate::error::WDError;
 use crate::styles;
+use crate::Config;
+
+use tracing::{info, warn, error};
+
+#[cfg(target_arch = "wasm32")]
 use winit::platform::web::WindowExtWebSys;
 
-pub async fn surface_presets(window: &winit::window::Window) -> (Surface, Device, Queue, SurfaceConfiguration) {
-    let instance = wgpu::Instance::new(wgpu::InstanceDescriptor { backends: wgpu::Backends::all(), ..Default::default() });
+pub async fn surface_presets(window: &winit::window::Window, gconfig: Arc<Config>) -> (Surface, Device, Queue, SurfaceConfiguration) {
+    let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor { backends: wgpu::Backends::all(), ..Default::default() });
     let surface = instance.create_surface(window).unwrap();
     let adapter = instance.request_adapter(
         &wgpu::RequestAdapterOptions {
@@ -14,21 +21,22 @@ pub async fn surface_presets(window: &winit::window::Window) -> (Surface, Device
     ).await.unwrap();
     let (device, queue) = adapter.request_device(
         &wgpu::DeviceDescriptor {
+            memory_hints: MemoryHints::MemoryUsage,
+            trace: Trace::Off,
             required_features: wgpu::Features::empty(),
             required_limits: if cfg!(target_arch = "wasm32") { Limits::downlevel_webgl2_defaults() } else { Limits::default() },
             label: None,
-        },
-        None,
+        }
     ).await.unwrap();
     let surface_caps = surface.get_capabilities(&adapter);
     let surface_format = surface_caps.formats.iter().copied().filter(|f| f.is_srgb()).next().unwrap_or(surface_caps.formats[0]);
-    let size = window.inner_size();
+
     let config = SurfaceConfiguration {
         usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
         format: surface_format,
         // NOTICE: Do nothing on native
-        width: size.width,
-        height: size.height,
+        width: gconfig.width,
+        height: gconfig.height,
         // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         present_mode: surface_caps.present_modes[0],
         alpha_mode: surface_caps.alpha_modes[0],
