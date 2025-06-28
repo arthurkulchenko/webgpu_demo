@@ -1,26 +1,29 @@
 use winit::{event::*, window::{Window},};
+use wgpu::Surface;
 
 #[cfg(target_arch="wasm32")]
 use wasm_bindgen::prelude::*;
 
-pub struct State {
-    // surface: wgpu::Surface,
-    // device: wgpu::Device,
-    // queue: wgpu::Queue,
-    // config: wgpu::SurfaceConfiguration,
-    size: winit::dpi::PhysicalSize<u32>,
+pub struct State<'a> {
+    pub surface: wgpu::Surface<'a>,
+    pub device: wgpu::Device,
+    pub queue: wgpu::Queue,
+    pub config: wgpu::SurfaceConfiguration,
+    pub size: winit::dpi::PhysicalSize<u32>,
     // The window must be declared after the surface so
     // it gets dropped after it as the surface contains
     // unsafe references to the window's resources.
-    // window: Window,
+    pub window: &'a Window,
 }
 
-impl State {
+impl<'a> State<'a> {
 
-    pub async fn new(window: Window) -> Self {
+    pub async fn new(
+        window: &'a Window, surface: wgpu::Surface<'a>, device: wgpu::Device, queue: wgpu::Queue, config: wgpu::SurfaceConfiguration
+    ) -> Self {
         let size = window.inner_size();
         let instance_descriptor = wgpu::InstanceDescriptor { backends: wgpu::Backends::all(), ..Default::default() };
-        let graph_api_wrapper_instance = wgpu::Instance::new(instance_descriptor);
+        let graph_api_wrapper_instance = wgpu::Instance::new(&instance_descriptor);
         // let surface = unsafe { graph_api_wrapper_instance.create_surface(&window) };
         let surface_result = unsafe { graph_api_wrapper_instance.create_surface(&window) };
         // let surface:wgpu::Surface;
@@ -36,12 +39,12 @@ impl State {
         // let config = wgpu::SurfaceConfiguration { usage: wgpu::TextureUsages::RENDER_ATTACHMENT, format: surface_format, width: size.width, height: size.height, present_mode: surface_caps.present_modes[0], alpha_mode: surface_caps.alpha_modes[0], view_formats: vec![], };
         // surface.configure(&device, &config);
         State {
-            // surface,
-            // device,
-            // queue,
-            // config
+            surface,
+            device,
+            queue,
+            config,
             size,
-            // window,
+            window,
         }
     }
 
