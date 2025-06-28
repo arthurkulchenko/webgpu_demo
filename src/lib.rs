@@ -47,9 +47,7 @@ async fn run() {
     let (window, runtime) = initialize(Arc::clone(&initial_config));
     let win_id = window.id().clone();
     let mut state = surface_presets(&window, Arc::clone(&initial_config)).await;
-    // let (surface, device, queue, config) = surface_presets(&window, Arc::clone(&initial_config)).await;
-    // let mut state = surface_presets(&window, Arc::clone(&initial_config)).await;
-    // let mut state = State::new(&window, surface, device, queue, config).await;
+
     let _ = runtime.run(
         move |mut event, event_handler| {
             match event {
@@ -104,16 +102,12 @@ async fn run() {
                         // config.height = physical_size.to_logical(1.0).height;
                         state.surface.configure(&state.device, &state.config);
                     },
-                    _ => {},
-                    WindowEvent::CloseRequested | WindowEvent::KeyboardInput {
-                        event: KeyEvent { logical_key: Key::Named(winit::keyboard::NamedKey::Escape), .. }, ..
-                    } => { event_handler.exit(); },
+
                     WindowEvent::RedrawRequested if window_id == win_id => {
                         let new_render = render(&mut state);
 
                         match new_render {
-                            Ok(_) => {}
-                            // _ => {},
+                            Ok(_) => {},
                             // Reconfigure the surface if lost
                             Err(wgpu::SurfaceError::Lost) => {
                                 // initial_config.width = physical_size.width / 2;
@@ -126,8 +120,14 @@ async fn run() {
                             },
                             // All other errors (Outdated, Timeout) should be resolved by the next frame
                             Err(e) => eprintln!("{:?}", e),
+                            _ => {},
                         }
                     },
+                    WindowEvent::CloseRequested | WindowEvent::KeyboardInput {
+                        event: KeyEvent { logical_key: Key::Named(winit::keyboard::NamedKey::Escape), .. }, ..
+                    } => { event_handler.exit(); },
+                    // NOTICE: HAS TO BE AT THE END
+                    _ => {},
                 },
                 
                 // // NOTICE: RedrawRequested will only trigger once unless we manually request it.
@@ -136,6 +136,7 @@ async fn run() {
             }
         }
     );
+    // let win_idd = window.id().clone();
 }
 
 pub fn sync_run() {
