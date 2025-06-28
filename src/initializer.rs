@@ -1,10 +1,8 @@
-use std::sync::Arc;
-use crate::Config;
-use crate::append_canvas;
-use std::panic;
-use winit::{window::Window, event::*, event_loop::{EventLoop}, keyboard::Key };
+use crate::{Config, append_canvas};
+use std::{panic, sync::Arc};
+use winit::{window::Window, event::*, event_loop::{EventLoop}, keyboard::Key};
 use tracing::{info, warn, error};
-use wgpu::{ Surface, SurfaceConfiguration, SurfaceTexture, SurfaceError, TextureView, CommandEncoder, Device, Queue, Limits };
+use wgpu::{Surface, SurfaceConfiguration, SurfaceTexture, SurfaceError, TextureView, CommandEncoder, Device, Queue, Limits};
 
 pub fn initialize(config: Arc<Config>) -> (winit::window::Window, winit::event_loop::EventLoop<()>) {
     cfg_if::cfg_if! {
@@ -15,11 +13,9 @@ pub fn initialize(config: Arc<Config>) -> (winit::window::Window, winit::event_l
             tracing_subscriber::fmt::init();
         }
     }
-
-    warn!("warn");
-    info!("info");
-    error!("error");
-
+    // warn!("warn");
+    // info!("info");
+    // error!("error");
     let runtime = EventLoop::new().unwrap();
     let window_attributes = Window::default_attributes()
         .with_title("wgpu canvas")
